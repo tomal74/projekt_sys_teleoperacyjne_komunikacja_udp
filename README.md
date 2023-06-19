@@ -3,7 +3,7 @@
 Komunikacja klient serwer pomiędzy dwoma PCtami. Program działa pod Windowsem, jest pisany pod VSC 2022. Przedstawia realizacje zadań z zakresu komunikacji UDP oraz sterowania robotem.
 
 ## Autorzy
-- [@tomal74](https://www.github.com/tomal74) 
+- [@tomal74](https://www.github.com/tomal74) - wszelkie pytania tomal74@o2.pl
 - [@Paweu00](https://www.github.com/Paweu00) 
 
 
