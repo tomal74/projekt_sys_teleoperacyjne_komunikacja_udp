@@ -10,3 +10,11 @@ typedef struct {
 	float omega;
 
 }Packet;
+
+typedef struct {
+
+	char msg[64u];
+
+	uint32_t cnt;
+
+}Packet1;
