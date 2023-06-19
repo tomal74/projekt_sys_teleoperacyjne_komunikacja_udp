@@ -17,6 +17,8 @@
 #include <ws2ipdef.h>
 #include <vector>
 #include <windows.h>
+#include <sys/types.h>
+
 
 #include "softDiffRobot.h"
 #include "SoftTimer.h"
@@ -31,6 +33,8 @@ constexpr auto LOCAL_ADDR = "192.168.1.145";
 constexpr auto MULTICAS_GROUP_ADDR = "224.1.1.1";
 constexpr auto RECIVE_TIMEOUT = 2.0f;	// recive timeout in sec;
 
+const float xo = -7.0; const float yo = 8; const float Ro = 2; const float ro = 1;
+
 /* LITERATURA */
 // biblia TCP/IP
 // black hat python -- bardziej dla hackerów
@@ -43,17 +47,81 @@ std::string getTimeStr() {
 	return s;
 }
 
-softDiffRobot mRobot(0.01);
-
+softDiffRobot mRobot(0.01);  // Robot model odometry integration dT in sec
 
 void odometryCB(SoftTimer* SoftTimer)
 {
+	mRobot.vAvoidCollision();
+	mRobot.vFeedbackLin();
 	mRobot.vOdometryUpdate();
+}
+
+
+FILE* openGnuplotPipeline() {
+	FILE* g_pipeline = _popen("gnuplot", "w"); /* otwarcie potoku do zapisu */
+	return g_pipeline;
+}
+
+void plot(FILE* pipeline, char* funName, char* a, char* b) {
+	fprintf(pipeline, "plot \"-\"\r\n%s %s\r\ne\n", a, b);
+}
+
+void setRangeLimit(FILE* pipeline)
+{
+	fprintf(pipeline, "set xrange[-20:20]\r\nset yrange[-20:20]\n");
+}
+
+void plotObstacle(FILE* pipeline, float x, float y, float R, float r, int obsNo)
+{
+	char chart_bufa[15];
+	char chart_bufb[15];
+	char chart_bufc[15];
+
+
+	sprintf(chart_bufa, "%.3f", x); // konwersja double ->char* 
+	sprintf(chart_bufb, "%.3f", y); // konwersja double ->char*
+	sprintf(chart_bufc, "%.3f", R); // plotObstacle double ->char*
+	fprintf(pipeline, "set object %d circle front at %s, %s size %s fillcolor rgb \"black\" lw 1\r\n", obsNo, chart_bufa, chart_bufb, chart_bufc);
+
+	sprintf(chart_bufc, "%.3f", r); // plotObstacle double ->char*
+	fprintf(pipeline, "set object %d circle front at %s, %s size %s fillcolor rgb \"red\" lw 1\r\n", obsNo+1, chart_bufa, chart_bufb, chart_bufc);
+	//set object 1 circle front at 0.5, 0.5 size 0.5 fillcolor rgb "black" lw 1
+}
+
+void plotObstacles(FILE* pipeline, softDiffRobot robot)
+{
+	int i = 1;
+	for (auto& itr : robot.Obstacles)
+	{	
+		plotObstacle(pipeline, itr.xo, itr.yo, itr.R_, itr.r_, i);
+		i += 2;
+	}
 }
 
 void printOdometryCB(SoftTimer* SoftTimer)
 {
 	mRobot.xPrintOdometry();
+
+	FILE* gnuPipeline = (FILE*)SoftTimer->userData;
+
+	char chart_bufa[15];
+	char chart_bufb[15];
+
+	double x, y;
+	mRobot.xGetZpoint(x, y);
+
+	
+	sprintf(chart_bufa, "%.3f", x); /* konwersja double ->char* */
+	sprintf(chart_bufb, "%.3f", y); /* konwersja double ->char* */
+	plot(gnuPipeline, (char*)"sin", chart_bufa, chart_bufb); /** nasza funkcja f(a*x+b) */
+	fflush(gnuPipeline); /* czyszczenie bufora zapisu */
+}
+
+
+void addObstacle(float x, float y, float R, float r)
+{
+	Obstacle obs = { x, y, R, r };
+	mRobot.Obstacles.push_back(obs);
 }
 
 
@@ -68,6 +136,14 @@ int main()
 	int           nRet;
 
 	slen = sizeof(si_other);
+
+	FILE* gnuplotPieline = openGnuplotPipeline();
+	setRangeLimit(gnuplotPieline);
+	Packet mPacket = { 0.0, 0.0 };
+
+	mRobot.odometryTimer.registerTimElapsedCallback(odometryCB);
+	SoftTimer mOdometryTimer(0.3, 0, printOdometryCB, true);
+	mOdometryTimer.userData = gnuplotPieline;
 
 	//Initialise winsock
 	printf("\nInitialising Winsock...");
@@ -124,17 +200,15 @@ int main()
 	// dodaj adresy do grupy multicast
 	setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
 
-	Packet mPacket = { 0.0, 0.0 };
-
-	mRobot.odometryTimer.registerTimElapsedCallback(odometryCB);
-	SoftTimer mOdometryTimer(0.7, 0, printOdometryCB, true);
-
 	//strcpy_s(mPacket.message, sizeof(mPacket.message), "Warszawa Radar");
 	//mPacket.cnt = 0;
 
 	auto Timer1start = std::chrono::system_clock::now();
 	std::chrono::duration<double> diffTimer1;
 
+	addObstacle(xo, yo, Ro, ro);
+	addObstacle(xo+2, yo+2, Ro, ro);
+	plotObstacles(gnuplotPieline, mRobot);
 	//keep listening for data
 	while ( true )	// main loop 
 	{
@@ -151,7 +225,7 @@ int main()
 
 		while ( true ) {
 
-			mRobot.vOdometryEvent(mPacket.v, mPacket.omega);
+			mRobot.vOdometryEventFBlin(mPacket.ux, mPacket.uy);
 			mOdometryTimer.timerProcess();
 
 			auto end = std::chrono::system_clock::now();
@@ -166,7 +240,7 @@ int main()
 			{
 				char *ip = inet_ntoa(si_other.sin_addr);
 				//printf("IP address: %s\n", ip);
-				std::cout << "recived!, v: " << mPacket.v << " omega: " << mPacket.omega << " len: " << recv_len << " from ip: " << ip << " --> " << getTimeStr() << std::endl;
+				std::cout << "recived!, ux: " << mPacket.ux << " uy: " << mPacket.uy << " len: " << recv_len << " from ip: " << ip << " --> " << getTimeStr() << std::endl;
 				break;
 			}
 
@@ -216,5 +290,6 @@ int main()
 	closesocket(s);
 	WSACleanup();
 
+	_pclose(gnuplotPieline);
 	return 0;
 }

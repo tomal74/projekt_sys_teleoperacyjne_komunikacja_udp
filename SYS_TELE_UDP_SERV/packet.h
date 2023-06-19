@@ -6,8 +6,8 @@
 #pragma pack(1)
 typedef struct {
 
-	float v;
-	float omega;
+	float ux;
+	float uy;
 
 	//char  message[128];
 	//uint32_t cnt;
