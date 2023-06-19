@@ -1,5 +1,6 @@
 /*
 	Simple UDP Server
+	Tomasz Konieczka
 */
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
