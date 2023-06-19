@@ -9,7 +9,7 @@ Komunikacja klient serwer pomiędzy dwoma PCtami. Program działa pod Windowsem,
 
 ## Server
 #### Dostępne są dwa pliki serwera:  
-[Serwer 1](/SYS_TELE_UDP_SERV) - realizuje odbiór danych z UDPa, wyświetlanie odebranych danych oraz odesłanie tych samych danych z powrotem do klienta. Serwer wyświetla także adres i port źródłowy odebranych danych.
+[Serwer 1](/SYS_TELE_UDP_SERV) - realizuje odbiór danych z UDPa, wyświetlanie odebranych danych oraz odesłanie tych samych danych z powrotem do klienta. Serwer wyświetla także adres i port źródłowy odebranych danych. Plik `Packet.h` zawiera strukturę `Packet`, która reprezentuje format przesyłanych danych. UWAGA! Należy pamiętać aby wielkość struktury `Packet` (sizeof), nie był wiekszy od zdefiniowanego rozmiaru bufora odbiorczego/nadawczego w pliku `main.cpp` - (BUFLEN).
 
 [Serwer 2](/SYS_TELE_UDP_SERV_STEROWANIE_ROBOTEM) - realizuje odbiór prędkości zadanych przez klienta UDP i symuluję robota mobilnego klasy (2,0). Zapewnia także linearyzację przez sprzeżenie zwrotne (sterowanie z dyszelkiem) oraz implementuje unikanie wcześniej dodanych przeszkód z wykorzystaniem funkcji potencjałowej. Całość wyświetlana jest przy użyciu narzędzia typu command-line - `Gnuplot`.  
 Dlatego też należy najpierw zainstalować Gnuplota - [Installing Gnuplot on Windows](http://spiff.rit.edu/classes/ast601/gnuplot/install_windows.html). 
